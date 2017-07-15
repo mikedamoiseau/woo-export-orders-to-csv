@@ -13,8 +13,8 @@ class WooExportOrdersToCsv {
     private $orders;
 
     public function __construct() {
-        $products = array();
-        $orders = array();
+        $this->products = array();
+        $this->orders = array();
 
         add_action( 'admin_menu', array( &$this, 'admin_menu' ) );
     } // __construct
@@ -40,7 +40,11 @@ class WooExportOrdersToCsv {
     private function load_products() {
 
         $full_product_list = array();
-        $loop = new WP_Query( array( 'post_type' => array('product', 'product_variation'), 'posts_per_page' => -1 ) );
+        $loop = new WP_Query( array(
+            'post_type'      => array( 'product', 'product_variation' ),
+            'posts_per_page' => - 1,
+            'orderby'        => array( 'menu_order' => 'ASC', 'ID' => 'ASC' ),
+        ) );
 
         while ( $loop->have_posts() ) : $loop->the_post();
             $theid = get_the_ID();
@@ -398,17 +402,25 @@ class WooExportOrdersToCsv {
         if ( $upload_dir['error'] === false ) {
             // $csv_name = date( 'Ymd_His' );
             $csv_name = 'wcf_csv.csv';
-            $csv_path = rtrim( $upload_dir['path'], '/' ) . '/';
+            $csv_path = rtrim( $upload_dir['basedir'], '/' ) . '/csv-export/';
 
-            $fd = fopen( $csv_path . $csv_name, 'w' );
-            if( $fd !== FALSE ) {
-                fputcsv( $fd, $table_titles );
-                foreach( $table as $row ) {
-                    fputcsv( $fd, $row );
+            if( !file_exists($csv_path) || !is_dir( $csv_path ) ) {
+                $folderExists = @mkdir($csv_path, 0777);
+            } else {
+                $folderExists = true;
+            }
+
+            if( $folderExists ) {
+                $fd = fopen( $csv_path . $csv_name, 'w' );
+                if( $fd !== FALSE ) {
+                    fputcsv( $fd, $table_titles );
+                    foreach( $table as $row ) {
+                        fputcsv( $fd, $row );
+                    }
+                    fclose($fd);
+
+                    $csv_url = rtrim( $upload_dir['baseurl'], '/' ) . '/csv-export/';
                 }
-                fclose($fd);
-
-                $csv_url = rtrim( $upload_dir['url'], '/' ) . '/';
             }
         }
 
@@ -474,60 +486,6 @@ class WooExportOrdersToCsv {
                         </label>
                     </td>
                 </tr>
-<?php /*
-                <tr>
-                    <td>
-                        <label>
-                            <span>First Name</span>
-                            <input type="text" name="first_name" value="<?php echo isset( $values['first_name'] ) ? $values['first_name'] : ''; ?>">
-                        </label>
-                    </td>
-                    <td>
-                        <label>
-                            <span>Last Name</span>
-                            <input type="text" name="last_name" value="<?php echo isset( $values['last_name'] ) ? $values['last_name'] : ''; ?>">
-                        </label>
-                    </td>
-                    <td>
-                        <label>
-                            <span>Email</span>
-                            <input type="text" name="email" value="<?php echo isset( $values['email'] ) ? $values['email'] : ''; ?>">
-                        </label>
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        <label>
-                            <span>Address</span>
-                            <input type="text" name="address" value="<?php echo isset( $values['address'] ) ? $values['address'] : ''; ?>">
-                        </label>
-                    </td>
-                    <td>
-                        <label>
-                            <span>City</span>
-                            <input type="text" name="city" value="<?php echo isset( $values['city'] ) ? $values['city'] : ''; ?>">
-                        </label>
-                    </td>
-                    <td>
-                        <label>
-                            <span>State / Province</span>
-                            <input type="text" name="state" value="<?php echo isset( $values['state'] ) ? $values['state'] : ''; ?>">
-                        </label>
-                    </td>
-                    <td>
-                        <label>
-                            <span>Post Code</span>
-                            <input type="text" name="postcode" value="<?php echo isset( $values['postcode'] ) ? $values['postcode'] : ''; ?>">
-                        </label>
-                    </td>
-                    <td>
-                        <label>
-                            <span>Country</span>
-                            <input type="text" name="country" value="<?php echo isset( $values['country'] ) ? $values['country'] : ''; ?>">
-                        </label>
-                    </td>
-                </tr>
-*/ ?>
                 <tr>
                     <td>
                         <input type="submit" value="Filter" class="button-primary" />
@@ -551,8 +509,19 @@ class WooExportOrdersToCsv {
             <tbody>
             <?php foreach( $table as $row ) : ?>
                 <tr>
+                    <?php $isFirst = true; ?>
                     <?php foreach( $row as $value ) : ?>
-                        <td><?php echo htmlentities( $value ); ?></td>
+                        <td>
+                            <?php if( $isFirst ) : ?>
+                                <a href="<?php echo admin_url( 'post.php?post=' . $value . '&action=edit' ); ?>"
+                                   target="_blank">
+                                <?php echo htmlentities( $value ); ?>
+                                </a>
+                            <?php else : ?>
+                                <?php echo htmlentities( $value ); ?>
+                            <?php endif; ?>
+                        </td>
+                        <?php $isFirst = false; ?>
                     <?php endforeach; ?>
                 </tr>
             <?php endforeach; ?>
